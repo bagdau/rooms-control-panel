@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Аудитория 331 — мониторинг ПК</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Аудитория 331</h1>
+    <form id="initForm" class="init-form">
+      <label>Количество мест:
+        <input type="number" id="totalInput" min="0" max="1000" value="20" />
+      </label>
+      <button type="submit">Обновить</button>
+    </form>
+    <div id="summary" class="summary"></div>
+  </header>
+
+  <main>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <script>
+    const ROOM = '331';
+    const API = 'api.php';
+
+    const grid = document.getElementById('grid');
+    const summary = document.getElementById('summary');
+    const initForm = document.getElementById('initForm');
+    const totalInput = document.getElementById('totalInput');
+
+    function cls(status) {
+      return status === 'free' ? 'free' : (status === 'busy' ? 'busy' : 'down');
+    }
+
+    function render(data) {
+      const pcs = data.computers || [];
+      grid.innerHTML = pcs.map(c => `
+        <button class="pc ${cls(c.status)}" data-id="${c.id}" title="${c.note || ''}\n${c.updated_at}">
+          <span class="pc-id">${c.id}</span>
+          <span class="pc-status">${c.status}</span>
+        </button>
+      `).join('');
+      const counts = {
+        free: pcs.filter(x => x.status === 'free').length,
+        busy: pcs.filter(x => x.status === 'busy').length,
+        down: pcs.filter(x => x.status === 'down').length,
+      };
+      summary.textContent = `Всего: ${data.total} | Свободно: ${counts.free} | Занято: ${counts.busy} | Неисправно: ${counts.down}`;
+      totalInput.value = data.total;
+    }
+
+    async function read() {
+      const res = await fetch(`${API}?action=read&room=${encodeURIComponent(ROOM)}`);
+      if (!res.ok) throw new Error('read failed');
+      return res.json();
+    }
+
+    async function init(total) {
+      const res = await fetch(`${API}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({action:'init', room: ROOM, total})
+      });
+      if (!res.ok) throw new Error('init failed');
+      return res.json();
+    }
+
+    async function update(id, status) {
+      const res = await fetch(`${API}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({action:'update', room: ROOM, id, status})
+      });
+      if (!res.ok) throw new Error('update failed');
+      return res.json();
+    }
+
+    function nextStatus(s) {
+      if (s === 'free') return 'busy';
+      if (s === 'busy') return 'down';
+      return 'free';
+    }
+
+    grid.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.pc');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const sEl = btn.querySelector('.pc-status');
+      const newStatus = nextStatus(sEl.textContent.trim());
+      try {
+        const data = await update(id, newStatus);
+        render(data);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    initForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const total = parseInt(totalInput.value, 10) || 0;
+      try {
+        const data = await init(total);
+        render(data);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // Первичная загрузка + «реальное время» через опрос
+    (async function boot() {
+      try { render(await read()); } catch (e) { console.error(e); }
+      setInterval(async () => {
+        try { render(await read()); } catch (e) {}
+      }, 5000);
+    })();
+  </script>
+</body>
+</html>
