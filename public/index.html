@@ -8,48 +8,134 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>Аудитория 331</h1>
+    <div class="brand">
+      <h1>Аудитория 331</h1>
+      <button id="refreshBtn" class="secondary">Обновить данные</button>
+    </div>
     <form id="initForm" class="init-form">
       <label>Количество мест:
         <input type="number" id="totalInput" min="0" max="1000" value="20" />
       </label>
-      <button type="submit">Обновить</button>
+      <button type="submit">Пересоздать список</button>
     </form>
+    <div class="actions">
+      <button id="addWorkplace" type="button">Добавить место</button>
+      <button id="resetRoom" type="button" class="warning">Сбросить статусы</button>
+      <button id="exportJson" type="button" class="secondary">Скачать отчёт</button>
+    </div>
     <div id="summary" class="summary"></div>
   </header>
 
   <main>
-    <div id="grid" class="grid"></div>
+    <section class="table-wrapper">
+      <table class="pc-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Статус</th>
+            <th>Заметка</th>
+            <th>Обновлено</th>
+            <th class="actions-col">Действия</th>
+          </tr>
+        </thead>
+        <tbody id="pcTableBody"></tbody>
+      </table>
+    </section>
   </main>
 
   <script>
     const ROOM = '331';
-    const API = 'api.php';
+    const API = new URL('../api.php', window.location.href).toString();
 
-    const grid = document.getElementById('grid');
+    const tableBody = document.getElementById('pcTableBody');
     const summary = document.getElementById('summary');
     const initForm = document.getElementById('initForm');
     const totalInput = document.getElementById('totalInput');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const addWorkplace = document.getElementById('addWorkplace');
+    const resetRoomBtn = document.getElementById('resetRoom');
+    const exportJsonBtn = document.getElementById('exportJson');
+
+    let currentState = { room: ROOM, total: 0, computers: [] };
+
+    const formatter = new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    const statusLabels = {
+      free: 'Свободен',
+      busy: 'Занят',
+      down: 'Неисправен'
+    };
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
+    }
 
     function cls(status) {
-      return status === 'free' ? 'free' : (status === 'busy' ? 'busy' : 'down');
+      if (status === 'free') return 'free';
+      if (status === 'busy') return 'busy';
+      return 'down';
     }
 
     function render(data) {
-      const pcs = data.computers || [];
-      grid.innerHTML = pcs.map(c => `
-        <button class="pc ${cls(c.status)}" data-id="${c.id}" title="${c.note || ''}\n${c.updated_at}">
-          <span class="pc-id">${c.id}</span>
-          <span class="pc-status">${c.status}</span>
-        </button>
-      `).join('');
-      const counts = {
-        free: pcs.filter(x => x.status === 'free').length,
-        busy: pcs.filter(x => x.status === 'busy').length,
-        down: pcs.filter(x => x.status === 'down').length,
+      const pcs = Array.isArray(data.computers) ? data.computers : [];
+      currentState = {
+        room: data.room || ROOM,
+        total: Number.isFinite(Number(data.total)) ? Number(data.total) : pcs.length,
+        computers: pcs.map(c => ({
+          id: String(c.id || ''),
+          status: String(c.status || 'free'),
+          note: String(c.note || ''),
+          updated_at: c.updated_at || ''
+        }))
       };
-      summary.textContent = `Всего: ${data.total} | Свободно: ${counts.free} | Занято: ${counts.busy} | Неисправно: ${counts.down}`;
-      totalInput.value = data.total;
+
+      tableBody.innerHTML = currentState.computers.map(c => {
+        const date = c.updated_at ? new Date(c.updated_at) : null;
+        const updated = date && !Number.isNaN(date.getTime()) ? formatter.format(date) : '';
+        const note = (c.note || '').replace(/\n/g, ' ');
+        const statusClass = cls(c.status);
+        const statusTitle = statusLabels[c.status] || c.status;
+        return `
+          <tr data-id="${escapeAttr(c.id)}" class="status-${statusClass}">
+            <td class="pc-id">${escapeHtml(c.id)}</td>
+            <td class="pc-status" data-status="${escapeAttr(c.status)}">${escapeHtml(statusTitle)}</td>
+            <td class="pc-note" title="${escapeAttr(note)}">${note ? escapeHtml(note) : '<span class="muted">нет</span>'}</td>
+            <td class="pc-updated">${escapeHtml(updated)}</td>
+            <td class="pc-actions">
+              <div class="button-group">
+                <button type="button" class="action set-status" data-status="free">Свободен</button>
+                <button type="button" class="action set-status" data-status="busy">Занят</button>
+                <button type="button" class="action set-status" data-status="down">Неисправен</button>
+                <button type="button" class="action edit-note">Заметка</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      const counts = {
+        free: currentState.computers.filter(x => x.status === 'free').length,
+        busy: currentState.computers.filter(x => x.status === 'busy').length,
+        down: currentState.computers.filter(x => x.status === 'down').length,
+      };
+      const totalValue = Number(data.total);
+      const total = Number.isFinite(totalValue) ? totalValue : currentState.computers.length;
+      summary.textContent = `Всего: ${total} | Свободно: ${counts.free} | Занято: ${counts.busy} | Неисправно: ${counts.down}`;
+      totalInput.value = total;
     }
 
     async function read() {
@@ -68,33 +154,66 @@
       return res.json();
     }
 
-    async function update(id, status) {
+    async function update(id, status, note = undefined) {
       const res = await fetch(`${API}`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({action:'update', room: ROOM, id, status})
+        body: JSON.stringify({action:'update', room: ROOM, id, status, note})
       });
       if (!res.ok) throw new Error('update failed');
       return res.json();
     }
 
-    function nextStatus(s) {
-      if (s === 'free') return 'busy';
-      if (s === 'busy') return 'down';
-      return 'free';
+    async function setNote(id, note) {
+      const res = await fetch(`${API}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({action:'setNote', room: ROOM, id, note})
+      });
+      if (!res.ok) throw new Error('set note failed');
+      return res.json();
     }
 
-    grid.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.pc');
-      if (!btn) return;
-      const id = btn.dataset.id;
-      const sEl = btn.querySelector('.pc-status');
-      const newStatus = nextStatus(sEl.textContent.trim());
-      try {
-        const data = await update(id, newStatus);
-        render(data);
-      } catch (err) {
-        console.error(err);
+    async function resetRoom() {
+      const res = await fetch(`${API}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({action:'reset', room: ROOM})
+      });
+      if (!res.ok) throw new Error('reset failed');
+      return res.json();
+    }
+
+    tableBody.addEventListener('click', async (e) => {
+      const row = e.target.closest('tr[data-id]');
+      if (!row) return;
+      const id = row.dataset.id;
+      const actionBtn = e.target.closest('button.action');
+      if (!actionBtn) return;
+
+      if (actionBtn.classList.contains('set-status')) {
+        const status = actionBtn.dataset.status;
+        try {
+          const data = await update(id, status);
+          render(data);
+        } catch (err) {
+          console.error(err);
+          alert('Не удалось обновить статус');
+        }
+      }
+
+      if (actionBtn.classList.contains('edit-note')) {
+        const current = currentState.computers.find(x => x.id === id);
+        const currentNote = current ? current.note : '';
+        const note = prompt('Заметка для ' + id, currentNote);
+        if (note === null) return;
+        try {
+          const data = await setNote(id, note);
+          render(data);
+        } catch (err) {
+          console.error(err);
+          alert('Не удалось сохранить заметку');
+        }
       }
     });
 
@@ -106,7 +225,51 @@
         render(data);
       } catch (err) {
         console.error(err);
+        alert('Ошибка при пересоздании аудитории');
       }
+    });
+
+    refreshBtn.addEventListener('click', async () => {
+      try {
+        render(await read());
+      } catch (err) {
+        console.error(err);
+        alert('Не удалось обновить данные');
+      }
+    });
+
+    resetRoomBtn.addEventListener('click', async () => {
+      if (!confirm('Вы уверены, что хотите сбросить все статусы?')) return;
+      try {
+        const data = await resetRoom();
+        render(data);
+      } catch (err) {
+        console.error(err);
+        alert('Не удалось сбросить статусы');
+      }
+    });
+
+    addWorkplace.addEventListener('click', async () => {
+      const newTotal = currentState.total + 1;
+      try {
+        const data = await init(newTotal);
+        render(data);
+      } catch (err) {
+        console.error(err);
+        alert('Не удалось добавить место');
+      }
+    });
+
+    exportJsonBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(currentState, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `room-${currentState.room}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     });
 
     // Первичная загрузка + «реальное время» через опрос

@@ -26,6 +26,16 @@ if (!is_array($input)) $input = [];
 $action = $_GET['action'] ?? $input['action'] ?? null;
 $room   = $_GET['room']   ?? $input['room']   ?? null;
 
+if (!is_string($action)) {
+    bad_request('action is required');
+}
+
+if ($room !== null && !is_string($room)) {
+    bad_request('room must be a string');
+}
+
+$room = is_string($room) ? trim($room) : $room;
+
 $store = new JsonStore(__DIR__ . '/../db/rooms');
 
 try {
@@ -47,9 +57,24 @@ try {
             if (!$room) bad_request('room is required');
             $id     = (string)($input['id']     ?? '');
             $status = (string)($input['status'] ?? '');
-            $note   = $input['note'] ?? '';
+            $note   = isset($input['note']) ? (string)$input['note'] : '';
             if ($id === '' || $status === '') bad_request('id and status are required');
             $data = $store->updateComputer($room, $id, $status, $note);
+            echo json_encode($data, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'setNote':
+            if (!$room) bad_request('room is required');
+            $id   = (string)($input['id']   ?? '');
+            $note = isset($input['note']) ? (string)$input['note'] : '';
+            if ($id === '') bad_request('id is required');
+            $data = $store->setNote($room, $id, $note);
+            echo json_encode($data, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'reset':
+            if (!$room) bad_request('room is required');
+            $data = $store->resetRoom($room);
             echo json_encode($data, JSON_UNESCAPED_UNICODE);
             break;
 

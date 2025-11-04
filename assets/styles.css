@@ -1,18 +1,53 @@
-:root { --bg:#0b0f14; --card:#15202b; --muted:#94a3b8; --free:#16a34a; --busy:#dc2626; --down:#6b7280; }
+:root {
+  --bg:#0b0f14;
+  --card:#15202b;
+  --muted:#94a3b8;
+  --free:#16a34a;
+  --busy:#dc2626;
+  --down:#6b7280;
+  --warning:#f97316;
+  --border:#1f2937;
+}
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: #e5e7eb; }
-.topbar { display:flex; gap:1rem; align-items:center; padding:1rem; background:#0f172a; flex-wrap:wrap; }
-.topbar h1 { margin:0; font-size:1.25rem; }
-.init-form { display:flex; gap:.5rem; align-items:center; }
+.topbar { display:grid; gap:1rem; padding:1.5rem 1rem 1rem; background:#0f172a; }
+.brand { display:flex; align-items:center; gap:1rem; }
+.topbar h1 { margin:0; font-size:1.5rem; }
+.init-form { display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap; }
+.init-form label { display:flex; flex-direction:column; font-size:.9rem; color:var(--muted); }
 .init-form input { padding:.4rem .6rem; border-radius:.4rem; border:1px solid #334155; background:#0b1220; color:#e5e7eb; width:7rem; }
-.init-form button { padding:.45rem .8rem; border:0; border-radius:.5rem; background:#2563eb; color:white; cursor:pointer; }
-.summary { margin-left:auto; }
-.grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:.75rem; padding:1rem; }
-@media(min-width:720px){ .grid{ grid-template-columns: repeat(5, 1fr);} }
-.pc { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.25rem;
-      min-height:80px; padding:.75rem; background:var(--card); border:1px solid #243244; border-radius:.75rem; cursor:pointer; }
-.pc .pc-id { font-weight:600; }
-.pc .pc-status { font-size:.9rem; color: var(--muted); }
-.pc.free { outline:2px solid var(--free); }
-.pc.busy { outline:2px solid var(--busy); }
-.pc.down { outline:2px solid var(--down); opacity:.8; }
+.init-form button { padding:.45rem 1rem; border:0; border-radius:.5rem; background:#2563eb; color:white; cursor:pointer; }
+.actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.actions button { padding:.5rem 1rem; border-radius:.6rem; border:1px solid transparent; background:#2563eb; color:white; cursor:pointer; font-weight:600; }
+.actions button.secondary { background:transparent; border-color:#334155; color:#cbd5f5; }
+.actions button.warning { background:var(--warning); border-color:transparent; color:#0b0f14; }
+.brand .secondary { margin-left:auto; padding:.4rem .9rem; border-radius:.5rem; border:1px solid #334155; background:transparent; color:#cbd5f5; cursor:pointer; }
+.summary { font-size:1rem; font-weight:600; color:#f8fafc; }
+
+.table-wrapper { padding:1rem; }
+.pc-table { width:100%; border-collapse:separate; border-spacing:0; background:var(--card); border:1px solid var(--border); border-radius:.8rem; overflow:hidden; }
+.pc-table thead { background:#1e293b; text-transform:uppercase; letter-spacing:.05em; font-size:.75rem; color:#94a3b8; }
+.pc-table th, .pc-table td { padding:.75rem 1rem; text-align:left; border-bottom:1px solid rgba(148,163,184,0.1); }
+.pc-table tbody tr:last-child td { border-bottom:none; }
+.pc-table tbody tr:hover { background:rgba(37,99,235,0.08); }
+.pc-table .pc-id { font-weight:600; }
+.pc-table .pc-note { max-width:22rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pc-table .pc-note .muted { color:var(--muted); font-style:italic; }
+.pc-table .pc-updated { color:var(--muted); font-size:.85rem; }
+.pc-table .pc-actions { width:1%; }
+.button-group { display:flex; flex-wrap:wrap; gap:.35rem; }
+.button-group .action { padding:.4rem .7rem; border-radius:.4rem; border:1px solid #1d4ed8; background:#1d4ed8; color:white; cursor:pointer; font-size:.85rem; }
+.button-group .action.edit-note { background:transparent; border-color:#475569; color:#cbd5f5; }
+.status-free .pc-status { color:var(--free); font-weight:600; }
+.status-busy .pc-status { color:#facc15; font-weight:600; }
+.status-down .pc-status { color:var(--busy); font-weight:600; }
+
+@media (max-width: 720px) {
+  .pc-table th:nth-child(3),
+  .pc-table td:nth-child(3) {
+    display:none;
+  }
+
+  .button-group { flex-direction:column; align-items:stretch; }
+  .button-group .action { width:100%; }
+}
