@@ -24,7 +24,7 @@
 
   <script>
     const ROOM = '331';
-    const API = 'api.php';
+    const API = new URL('../api.php', window.location.href).toString();
 
     const grid = document.getElementById('grid');
     const summary = document.getElementById('summary');
@@ -36,7 +36,7 @@
     }
 
     function render(data) {
-      const pcs = data.computers || [];
+      const pcs = Array.isArray(data.computers) ? data.computers : [];
       grid.innerHTML = pcs.map(c => `
         <button class="pc ${cls(c.status)}" data-id="${c.id}" title="${c.note || ''}\n${c.updated_at}">
           <span class="pc-id">${c.id}</span>
@@ -48,8 +48,10 @@
         busy: pcs.filter(x => x.status === 'busy').length,
         down: pcs.filter(x => x.status === 'down').length,
       };
-      summary.textContent = `Всего: ${data.total} | Свободно: ${counts.free} | Занято: ${counts.busy} | Неисправно: ${counts.down}`;
-      totalInput.value = data.total;
+      const totalValue = Number(data.total);
+      const total = Number.isFinite(totalValue) ? totalValue : pcs.length;
+      summary.textContent = `Всего: ${total} | Свободно: ${counts.free} | Занято: ${counts.busy} | Неисправно: ${counts.down}`;
+      totalInput.value = total;
     }
 
     async function read() {
